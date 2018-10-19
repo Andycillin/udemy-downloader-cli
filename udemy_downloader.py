@@ -98,10 +98,13 @@ def get_assets_of_lecture(session, courseid, lecture):
     asset = r4.json()['asset']
     if (asset['asset_type'] == 'Video'):
         url = asset['stream_urls']['Video'][0]['file']
-        vid = session.get(url)
         ext = url.split('/')[-1].split('?')[0].split('.')[-1]
         vid_name = str(lecture['id']) + '_' + '-'.join(lecture['title'].split(' '))
-        filename = os.path.join(course_dir, vid_name + '.' + ext)
+        vid_filename = vid_name + '.' + ext
+        filename = os.path.join(course_dir, vid_filename)
+        print("Downloading video: %s" % (vid_filename))
+        vid = session.get(url)
+
         with open(filename, 'wb') as f:
             f.write(vid.content)
 
@@ -109,7 +112,12 @@ def get_assets_of_lecture(session, courseid, lecture):
 def download_asset(session, courseid, lectureid, asset):
     print("Downloading file: ", asset['filename'], "...")
     r = session.get(download_asset_url % (courseid, lectureid, asset['id']))
-    open(asset['filename'], 'wb').write(r.content)
+    if not os.path.isdir(download_dir):
+        os.makedirs(download_dir)
+    course_dir = os.path.join(download_dir,
+                              str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' ')))
+    filepath = os.path.join(course_dir, asset['filename'])
+    open(filepath, 'wb').write(r.content)
     # print("Saved: ", asset['filename'])
 
 
@@ -141,13 +149,14 @@ def cmd_download(session, args_list):
         for l in lectures_of_selected_course:
             if int(l['id']) == int(args_list[0]):
                 found = True
-                download_single_lecture_from_course(session, l)
                 print('''
-                       ----------------------
-                       |  DOWNLOAD LECTURE  |
-                       ----------------------
-                       ''')
-                print("Successfully downloaded lecture: %s!" % (int(l['title'])))
+                ----------------------
+                |  DOWNLOAD LECTURE  |
+                ----------------------
+                ''')
+                download_single_lecture_from_course(session, l)
+
+                print("Successfully downloaded lecture: %s!" % (l['title']))
                 break
         if not found:
             print("Lecture not found. Are you sure that LectureID is correct?")
