@@ -80,7 +80,7 @@ def get_assets_of_lecture(session, courseid, lecture):
 def download_asset(session, courseid, lectureid, asset):
     print("Downloading file: ", asset['filename'])
     r = session.get(download_asset_url % (courseid, lectureid, asset['id']))
-    # open(asset['filename'], 'wb').write(r.content)
+    open(asset['filename'], 'wb').write(r.content)
     # print("Saved: ", asset['filename'])
 
 
