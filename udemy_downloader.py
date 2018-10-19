@@ -8,8 +8,15 @@ session = None
 download_dir = os.path.join(os.getcwd(), 'udemy-downloads')
 
 
-def login(session, email, password):
+def login(session):
     csrftoken = get_csrf_token(session)
+    print('''
+    ------------------
+    | Authentication |
+    ------------------
+    ''')
+    email = input("Email: ")
+    password = getpass.getpass()
     print("Logging in...")
     r2 = session.post(login_url,
                       data={'email': email, 'password': password,
@@ -34,11 +41,16 @@ def login(session, email, password):
 
 def get_csrf_token(session):
     global base_api_url
-    print("Getting CSRF Token...")
-    x = session.get(base_api_url + '/join/login-popup/')
-    csrftoken = session.cookies['csrftoken']
-    headers['csrftoken'] = csrftoken
-    return csrftoken
+    print("Connecting...")
+    try:
+        x = session.get(base_api_url + '/join/login-popup/')
+        csrftoken = session.cookies['csrftoken']
+        headers['csrftoken'] = csrftoken
+        print("Connection established!")
+        return csrftoken
+    except:
+        print("Failed to connect to " + base_api_url)
+        exit(0)
 
 
 def get_enrolled_courses(session):
@@ -46,6 +58,11 @@ def get_enrolled_courses(session):
     r5 = session.get(enrolled_courses_url)
     courses = r5.json()['results']
     enrolled_courses = courses
+    print('''
+    --------------------
+    | Enrolled courses |
+    --------------------
+    ''')
     if (len(courses) == 0):
         print("You've not enrolled in any course")
     else:
@@ -112,16 +129,25 @@ def cmd_download(session, args_list):
     assert len(args_list) == 1
     download_all = args_list[0].lower() == 'all'
     if download_all:
+        print('''
+        -------------------------
+        | DOWNLOAD ALL LECTURES |
+        -------------------------
+        ''')
         download_all_from_course(session)
         print("Successfully downloaded all lectures!")
-
     else:
         found = False
         for l in lectures_of_selected_course:
             if int(l['id']) == int(args_list[0]):
                 found = True
                 download_single_lecture_from_course(session, l)
-                print("Successfully downloaded lecture with id %d!" % (int(l['id'])))
+                print('''
+                       ----------------------
+                       |  DOWNLOAD LECTURE  |
+                       ----------------------
+                       ''')
+                print("Successfully downloaded lecture: %s!" % (int(l['title'])))
                 break
         if not found:
             print("Lecture not found. Are you sure that LectureID is correct?")
@@ -141,12 +167,15 @@ def cmd_select_course(session, args_list):
         selected_course_id = course_id
         cmd_list_all_lectures(session, args_list)
     else:
-        print("Course ", course_id, "not found")
+        print('Course with ID %d not found' % (int(c['id'])))
 
 
 def cmd_list_all_lectures(session, args_list):
-    print("-" * 20)
+    print('-' * (len(selected_course['title']) + 4))
+    print('  ' + selected_course['title'])
+    print('-' * (len(selected_course['title']) + 4))
     print("%-10s%s" % ('ID', 'Lecture title'))
+    print("-" * 20)
     for l in lectures_of_selected_course:
         print("%-10s%s" % (l['id'], l['title']))
     print("-" * 20)
@@ -217,18 +246,18 @@ def build_env(host):
 
 
 def greeting():
-    print('-' * 26)
-    print('|', ' ' * 22, '|')
-    print('|  UdemyDownloader v1.0  |')
-    print('|', ' ' * 22, '|')
-    print('-' * 26)
+    print('''
+    ===========================
+    ||                       ||
+    || UDEMY DOWNLOADER V1.0 ||
+    ||       Andy Tran       ||
+    ===========================
+    ''')
 
 
 greeting()
 host = input("Udemy Server (default www.udemy.com):")
 build_env(host)
-email = input("Email: ")
-password = getpass.getpass()
-login(session, email, password)
+login(session)
 get_enrolled_courses(session)
 loop_user_interaction(session)
