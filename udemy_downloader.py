@@ -69,14 +69,13 @@ def get_lectures_of_course(session, courseid):
 def get_assets_of_lecture(session, courseid, lecture):
     if not os.path.isdir(download_dir):
         os.makedirs(download_dir)
-    course_dir = os.path.join(download_dir, str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' ')))
+    course_dir = os.path.join(download_dir,
+                              str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' ')))
     if not os.path.isdir(course_dir):
         os.makedirs(course_dir)
-    # print("Lecture", lecture['title'])
     if len(lecture['supplementary_assets']) > 0:
         print('%s has %d supplementary asset' % (lecture['title'], len(lecture['supplementary_assets'])))
         for a in lecture['supplementary_assets']:
-            # print(a['id'], a['filename'])
             download_asset(session, courseid, lecture['id'], a)
     r4 = session.get(assets_of_lecture_url % (courseid, lecture['id']))
     asset = r4.json()['asset']
@@ -114,11 +113,18 @@ def cmd_download(session, args_list):
     download_all = args_list[0].lower() == 'all'
     if download_all:
         download_all_from_course(session)
+        print("Successfully downloaded all lectures!")
+
     else:
+        found = False
         for l in lectures_of_selected_course:
             if int(l['id']) == int(args_list[0]):
+                found = True
                 download_single_lecture_from_course(session, l)
-    print("Successfully downloaded!")
+                print("Successfully downloaded lecture with id %d!" % (int(l['id'])))
+                break
+        if not found:
+            print("Lecture not found. Are you sure that LectureID is correct?")
 
 
 def cmd_select_course(session, args_list):
