@@ -3,7 +3,9 @@ import requests, os, getpass
 selected_course_id = None
 lectures_of_selected_course = []
 enrolled_courses = []
+selected_course = None
 session = None
+download_dir = os.path.join(os.getcwd(), 'udemy-downloads')
 
 
 def login(session, email, password):
@@ -65,7 +67,12 @@ def get_lectures_of_course(session, courseid):
 
 
 def get_assets_of_lecture(session, courseid, lecture):
-    print("Lecture", lecture['title'])
+    if not os.path.isdir(download_dir):
+        os.makedirs(download_dir)
+    course_dir = os.path.join(download_dir, str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' ')))
+    if not os.path.isdir(course_dir):
+        os.makedirs(course_dir)
+    # print("Lecture", lecture['title'])
     if len(lecture['supplementary_assets']) > 0:
         print('%s has %d supplementary asset' % (lecture['title'], len(lecture['supplementary_assets'])))
         for a in lecture['supplementary_assets']:
@@ -74,11 +81,17 @@ def get_assets_of_lecture(session, courseid, lecture):
     r4 = session.get(assets_of_lecture_url % (courseid, lecture['id']))
     asset = r4.json()['asset']
     if (asset['asset_type'] == 'Video'):
-        print(asset['stream_urls']['Video'][0]['file'])
+        url = asset['stream_urls']['Video'][0]['file']
+        vid = session.get(url)
+        ext = url.split('/')[-1].split('?')[0].split('.')[-1]
+        vid_name = str(lecture['id']) + '_' + '-'.join(lecture['title'].split(' '))
+        filename = os.path.join(course_dir, vid_name + '.' + ext)
+        with open(filename, 'wb') as f:
+            f.write(vid.content)
 
 
 def download_asset(session, courseid, lectureid, asset):
-    print("Downloading file: ", asset['filename'])
+    print("Downloading file: ", asset['filename'], "...")
     r = session.get(download_asset_url % (courseid, lectureid, asset['id']))
     open(asset['filename'], 'wb').write(r.content)
     # print("Saved: ", asset['filename'])
@@ -103,18 +116,19 @@ def cmd_download(session, args_list):
         download_all_from_course(session)
     else:
         for l in lectures_of_selected_course:
-            if l['id'] == args_list[0]:
+            if int(l['id']) == int(args_list[0]):
                 download_single_lecture_from_course(session, l)
     print("Successfully downloaded!")
 
 
 def cmd_select_course(session, args_list):
-    global lectures_of_selected_course, selected_course_id
+    global lectures_of_selected_course, selected_course_id, selected_course
     course_id = int(args_list[0])
     found = False
     for c in enrolled_courses:
         if c['id'] == course_id:
             found = True
+            selected_course = c
             break
     if found:
         lectures_of_selected_course = get_lectures_of_course(session, course_id)
