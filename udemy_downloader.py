@@ -1,4 +1,4 @@
-import requests, os, getpass, pickle
+import requests, os, getpass, pickle, re
 
 selected_course_id = None
 lectures_of_selected_course = []
@@ -96,7 +96,8 @@ def get_assets_of_lecture(session, courseid, lecture):
     if not os.path.isdir(download_dir):
         os.makedirs(download_dir)
     course_dir = os.path.join(download_dir,
-                              str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' ')))
+                              clean_string(
+                                  str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' '))))
     if not os.path.isdir(course_dir):
         os.makedirs(course_dir)
     if len(lecture['supplementary_assets']) > 0:
@@ -108,7 +109,7 @@ def get_assets_of_lecture(session, courseid, lecture):
     if (asset['asset_type'] == 'Video'):
         url = asset['stream_urls']['Video'][0]['file']
         ext = url.split('/')[-1].split('?')[0].split('.')[-1]
-        vid_name = str(lecture['id']) + '_' + '-'.join(lecture['title'].split(' '))
+        vid_name = clean_string(str(lecture['id']) + '_' + '-'.join(lecture['title'].split(' ')))
         vid_filename = vid_name + '.' + ext
         filename = os.path.join(course_dir, vid_filename)
         print("Downloading video: %s" % (vid_filename))
@@ -124,14 +125,15 @@ def download_asset(session, courseid, lectureid, asset):
     if not os.path.isdir(download_dir):
         os.makedirs(download_dir)
     course_dir = os.path.join(download_dir,
-                              str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' ')))
-    filepath = os.path.join(course_dir, asset['filename'])
+                              clean_string(
+                                  str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' '))))
+    filepath = os.path.join(course_dir, clean_string(str(lectureid) + '_' + asset['filename']))
     open(filepath, 'wb').write(r.content)
     # print("Saved: ", asset['filename'])
 
 
 def download_all_from_course(session):
-    print("Course: %s" %(selected_course['id']))
+    print("Course: %s" % (selected_course['id']))
     if selected_course_id in downloaded_courses:
         print("Already downloaded this course. Skipping...")
         return
@@ -205,11 +207,14 @@ def cmd_list_all_lectures(session, args_list):
     print("-" * 20)
     print("Type 'download all' or 'download <LectureID> to save videos and assets to your computer")
 
+
 def cmd_downloadall(session, args_list):
     global enrolled_courses
     for c in enrolled_courses:
         cmd_select_course(session, [c['id']])
         cmd_download(session, ['all'])
+
+
 cmd_list = {
     'download': {
         'require_course': True,
@@ -276,10 +281,12 @@ def build_env(host):
                }
     session.headers = headers
 
+
 def persist_internal_state():
     istate_file = open(internal_state_file, 'wb')
     pickle.dump(downloaded_courses, istate_file)
     istate_file.close()
+
 
 def greeting():
     print('''
@@ -289,6 +296,10 @@ def greeting():
     ||       Andy Tran       ||
     ===========================
     ''')
+
+
+def clean_string(path):
+    return re.sub('[^\d\w\-_]+', '', path)
 
 
 greeting()
