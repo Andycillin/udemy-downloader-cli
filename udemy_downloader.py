@@ -8,6 +8,7 @@ session = None
 download_dir = os.path.join(os.getcwd(), 'udemy-downloads')
 internal_state_file = os.path.join(os.getcwd(), 'istates.pkl')
 downloaded_courses = []
+downloaded_lectures =[]
 if os.path.exists(internal_state_file):
     istate_file = open(internal_state_file, 'rb')
     downloaded_courses = pickle.load(istate_file)
@@ -93,6 +94,10 @@ def get_lectures_of_course(session, courseid):
 
 
 def get_assets_of_lecture(session, courseid, lecture):
+    if (str(courseid)+'_'+str(lecture['id']) in downloaded_lectures):
+        print("Already downloaded this lecture (%s). Skipping..." % (str(lecture['id'])))
+        return
+
     if not os.path.isdir(download_dir):
         os.makedirs(download_dir)
     course_dir = os.path.join(download_dir,
@@ -114,9 +119,9 @@ def get_assets_of_lecture(session, courseid, lecture):
         filename = os.path.join(course_dir, vid_filename)
         print("Downloading video: %s" % (vid_filename))
         vid = session.get(url)
-
         with open(filename, 'wb') as f:
             f.write(vid.content)
+    downloaded_lectures.append(str(courseid)+'_'+str(lecture['id']))
 
 
 def download_asset(session, courseid, lectureid, asset):
@@ -284,7 +289,7 @@ def build_env(host):
 
 def persist_internal_state():
     istate_file = open(internal_state_file, 'wb')
-    pickle.dump(downloaded_courses, istate_file)
+    pickle.dump(zip(downloaded_courses, downloaded_lectures), istate_file)
     istate_file.close()
 
 
