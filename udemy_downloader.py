@@ -11,7 +11,7 @@ downloaded_courses = []
 downloaded_lectures =[]
 if os.path.exists(internal_state_file):
     istate_file = open(internal_state_file, 'rb')
-    downloaded_courses = pickle.load(istate_file)
+    downloaded_courses, downloaded_lectures = pickle.load(istate_file)
     istate_file.close()
 
 
@@ -110,7 +110,11 @@ def get_assets_of_lecture(session, courseid, lecture):
         for a in lecture['supplementary_assets']:
             download_asset(session, courseid, lecture['id'], a)
     r4 = session.get(assets_of_lecture_url % (courseid, lecture['id']))
-    asset = r4.json()['asset']
+    try:
+        asset = r4.json()['asset']
+    except:
+        print(r4)
+
     if (asset['asset_type'] == 'Video'):
         url = asset['stream_urls']['Video'][0]['file']
         ext = url.split('/')[-1].split('?')[0].split('.')[-1]
@@ -289,7 +293,7 @@ def build_env(host):
 
 def persist_internal_state():
     istate_file = open(internal_state_file, 'wb')
-    pickle.dump(zip(downloaded_courses, downloaded_lectures), istate_file)
+    pickle.dump((downloaded_courses, downloaded_lectures), istate_file)
     istate_file.close()
 
 
