@@ -10,6 +10,6 @@ Command list:
 - "**select \<CourseID>**": Select a course and list all lectures
 - "**download all**": Download all assets from selected course
 - "**download \<LectureID>**": Download a single lecture and its assets
-
+- "**downloadall**": Download all enrolled courses 
 ## License
 UdemyDownloaderCLI is MIT licensed
