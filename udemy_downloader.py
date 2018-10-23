@@ -1,4 +1,4 @@
-import requests, os, getpass
+import requests, os, getpass, pickle
 
 selected_course_id = None
 lectures_of_selected_course = []
@@ -6,6 +6,12 @@ enrolled_courses = []
 selected_course = None
 session = None
 download_dir = os.path.join(os.getcwd(), 'udemy-downloads')
+internal_state_file = os.path.join(os.getcwd(), 'istates.pkl')
+downloaded_courses = []
+if os.path.exists(internal_state_file):
+    istate_file = open(internal_state_file, 'rb')
+    downloaded_courses = pickle.load(istate_file)
+    istate_file.close()
 
 
 def login(session):
@@ -70,7 +76,10 @@ def get_enrolled_courses(session):
         print("-" * 20)
         print("%-10s%s" % ('ID', 'Title'))
         for c in courses:
-            print('%-10s%s' % (c['id'], c['title']))
+            cname = c['title']
+            if c['id'] in downloaded_courses:
+                cname = "(Downloaded) " + cname
+            print('%-10s%s' % (c['id'], cname))
         print("-" * 20)
 
 
@@ -122,10 +131,16 @@ def download_asset(session, courseid, lectureid, asset):
 
 
 def download_all_from_course(session):
+    print("Course: %s" %(selected_course['id']))
+    if selected_course_id in downloaded_courses:
+        print("Already downloaded this course. Skipping...")
+        return
     print("Downloading all lectures and assets...")
     lectures = get_lectures_of_course(session, selected_course_id)
     for l in lectures:
         get_assets_of_lecture(session, selected_course_id, l)
+    downloaded_courses.append(selected_course_id)
+    persist_internal_state()
 
 
 def download_single_lecture_from_course(session, lecture):
@@ -190,7 +205,11 @@ def cmd_list_all_lectures(session, args_list):
     print("-" * 20)
     print("Type 'download all' or 'download <LectureID> to save videos and assets to your computer")
 
-
+def cmd_downloadall(session, args_list):
+    global enrolled_courses
+    for c in enrolled_courses:
+        cmd_select_course(session, [c['id']])
+        cmd_download(session, ['all'])
 cmd_list = {
     'download': {
         'require_course': True,
@@ -203,6 +222,10 @@ cmd_list = {
     'select': {
         'require_course': False,
         'func': cmd_select_course
+    },
+    'downloadall': {
+        'require_course': False,
+        'func': cmd_downloadall
     }
 }
 
@@ -253,6 +276,10 @@ def build_env(host):
                }
     session.headers = headers
 
+def persist_internal_state():
+    istate_file = open(internal_state_file, 'wb')
+    pickle.dump(downloaded_courses, istate_file)
+    istate_file.close()
 
 def greeting():
     print('''
