@@ -8,7 +8,7 @@ session = None
 download_dir = os.path.join(os.getcwd(), 'udemy-downloads')
 internal_state_file = os.path.join(os.getcwd(), 'istates.pkl')
 downloaded_courses = []
-downloaded_lectures =[]
+downloaded_lectures = []
 if os.path.exists(internal_state_file):
     istate_file = open(internal_state_file, 'rb')
     downloaded_courses, downloaded_lectures = pickle.load(istate_file)
@@ -94,7 +94,7 @@ def get_lectures_of_course(session, courseid):
 
 
 def get_assets_of_lecture(session, courseid, lecture):
-    if (str(courseid)+'_'+str(lecture['id']) in downloaded_lectures):
+    if (str(courseid) + '_' + str(lecture['id']) in downloaded_lectures):
         print("Already downloaded this lecture (%s). Skipping..." % (str(lecture['id'])))
         return
 
@@ -125,18 +125,19 @@ def get_assets_of_lecture(session, courseid, lecture):
         vid = session.get(url)
         with open(filename, 'wb') as f:
             f.write(vid.content)
-    downloaded_lectures.append(str(courseid)+'_'+str(lecture['id']))
+    downloaded_lectures.append(str(courseid) + '_' + str(lecture['id']))
 
 
 def download_asset(session, courseid, lectureid, asset):
     print("Downloading file: ", asset['filename'], "...")
     r = session.get(download_asset_url % (courseid, lectureid, asset['id']))
+    filename, ext = tuple(asset['filename'].rsplit('.', 1))
     if not os.path.isdir(download_dir):
         os.makedirs(download_dir)
     course_dir = os.path.join(download_dir,
                               clean_string(
                                   str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' '))))
-    filepath = os.path.join(course_dir, clean_string(str(lectureid) + '_' + asset['filename']))
+    filepath = os.path.join(course_dir, clean_string(str(lectureid) + '_' + filename) + '.' + ext)
     open(filepath, 'wb').write(r.content)
     # print("Saved: ", asset['filename'])
 
