@@ -58,7 +58,7 @@ def login(session):
             set_access_token(access_token)
         print('Access granted!')
         persist_internal_state()
-
+    get_enrolled_courses(session)
 
 def get_csrf_token(session):
     global base_api_url
@@ -75,27 +75,32 @@ def get_csrf_token(session):
 
 
 def get_enrolled_courses(session):
-    global enrolled_courses
+    global enrolled_courses, access_token
     r5 = session.get(enrolled_courses_url)
-    courses = r5.json()['results']
-    enrolled_courses = courses
-    print('''
-    --------------------
-    | Enrolled courses |
-    --------------------
-    ''')
-    if (len(courses) == 0):
-        print("You've not enrolled in any course")
+    if r5.status_code != 200:
+        access_token = None
+        print("Access token expired or invalid. You must login again")
+        login(session)
     else:
-        print("Enrolled courses:")
-        print("-" * 20)
-        print("%-10s%s" % ('ID', 'Title'))
-        for c in courses:
-            cname = c['title']
-            if c['id'] in downloaded_courses:
-                cname = "(Downloaded) " + cname
-            print('%-10s%s' % (c['id'], cname))
-        print("-" * 20)
+        courses = r5.json()['results']
+        enrolled_courses = courses
+        print('''
+        --------------------
+        | Enrolled courses |
+        --------------------
+        ''')
+        if (len(courses) == 0):
+            print("You've not enrolled in any course")
+        else:
+            print("Enrolled courses:")
+            print("-" * 20)
+            print("%-10s%s" % ('ID', 'Title'))
+            for c in courses:
+                cname = c['title']
+                if c['id'] in downloaded_courses:
+                    cname = "(Downloaded) " + cname
+                print('%-10s%s' % (c['id'], cname))
+            print("-" * 20)
 
 
 def get_lectures_of_course(session, courseid):
@@ -352,5 +357,4 @@ if _host != host:
     host = _host
 build_env(host)
 login(session)
-get_enrolled_courses(session)
 loop_user_interaction(session)
