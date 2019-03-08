@@ -9,43 +9,55 @@ download_dir = os.path.join(os.getcwd(), 'udemy-downloads')
 internal_state_file = os.path.join(os.getcwd(), 'istates.pkl')
 downloaded_courses = []
 downloaded_lectures = []
+host = None
+access_token = None
+
 if os.path.exists(internal_state_file):
     istate_file = open(internal_state_file, 'rb')
-    downloaded_courses, downloaded_lectures = pickle.load(istate_file)
+    downloaded_courses, downloaded_lectures, host, access_token = pickle.load(istate_file)
     istate_file.close()
 
 
-def login(session):
-    csrftoken = get_csrf_token(session)
-    print('''
-    ------------------
-    | Authentication |
-    ------------------
-    ''')
-    email = input("Email: ")
-    password = getpass.getpass()
-    print("Logging in...")
-    r2 = session.post(login_url,
-                      data={'email': email, 'password': password,
-                            'csrfmiddlewaretoken': csrftoken}, headers=headers)
-    if 'access_token' not in r2.cookies:
-        found_token = False
-        for h in r2.history:
-            if 'access_token' in h.cookies:
-                found_token = True
-                access_token = h.cookies['access_token']
-                headers['Authorization'] = 'Bearer ' + access_token
-                headers['X-Udemy-Authorization'] = 'Bearer ' + access_token
-                break
-        if not found_token:
-            print("Access denied!")
-            exit(0)
+def set_access_token(token):
+    headers['Authorization'] = 'Bearer ' + token
+    headers['X-Udemy-Authorization'] = 'Bearer ' + token
 
+
+def login(session):
+    global access_token
+    if access_token != None:
+        print("Access token found, trying to log in...")
+        set_access_token(access_token)
     else:
-        access_token = r2.cookies['access_token']
-        headers['Authorization'] = 'Bearer ' + access_token
-        headers['X-Udemy-Authorization'] = 'Bearer ' + access_token
-    print('Access granted!')
+        csrftoken = get_csrf_token(session)
+        print('''
+        ------------------
+        | Authentication |
+        ------------------
+        ''')
+        email = input("Email: ")
+        password = getpass.getpass()
+        print("Logging in...")
+        r2 = session.post(login_url,
+                          data={'email': email, 'password': password,
+                                'csrfmiddlewaretoken': csrftoken}, headers=headers)
+        if 'access_token' not in r2.cookies:
+            found_token = False
+            for h in r2.history:
+                if 'access_token' in h.cookies:
+                    found_token = True
+                    access_token = h.cookies['access_token']
+                    set_access_token(access_token)
+                    break
+            if not found_token:
+                print("Access denied!")
+                exit(0)
+
+        else:
+            access_token = r2.cookies['access_token']
+            set_access_token(access_token)
+        print('Access granted!')
+        persist_internal_state()
 
 
 def get_csrf_token(session):
@@ -124,9 +136,15 @@ def get_assets_of_lecture(session, courseid, lecture):
         vid_filename = vid_name + '.' + ext
         filename = os.path.join(course_dir, vid_filename)
         print("Downloading video: %s" % (vid_filename))
-        vid = session.get(url)
-        with open(filename, 'wb') as f:
-            f.write(vid.content)
+        print("URL: ", url)
+        # vid = session.get(url)
+        vid = requests.get(url)
+        if vid.status_code == 200:
+            with open(filename, 'wb') as f:
+                f.write(vid.content)
+        else:
+            print("Error Code: ", vid.status_code)
+            print(vid.text)
     downloaded_lectures.append(str(courseid) + '_' + str(lecture['id']))
 
 
@@ -143,9 +161,14 @@ def download_asset(session, courseid, lectureid, asset):
 
     try:
         urls = r.json()['download_urls']
-        content = session.get(urls['File'][0]['file'])
+        # content = session.get(urls['File'][0]['file'])
         print("URL: ", urls['File'][0]['file'])
-        open(filepath, 'wb').write(content.content)
+        content = requests.get(urls['File'][0]['file'])
+        if content.status_code == 200:
+            open(filepath, 'wb').write(content.content)
+        else:
+            print("Error Code: ", content.status_code)
+            print(content.text)
     except:
         print(r)
 
@@ -304,7 +327,7 @@ def build_env(host):
 
 def persist_internal_state():
     istate_file = open(internal_state_file, 'wb')
-    pickle.dump((downloaded_courses, downloaded_lectures), istate_file)
+    pickle.dump((downloaded_courses, downloaded_lectures, host, access_token), istate_file)
     istate_file.close()
 
 
@@ -323,7 +346,10 @@ def clean_string(path):
 
 
 greeting()
-host = input("Udemy Server (default www.udemy.com):")
+_host = input("Udemy Server (default www.udemy.com):")
+if _host != host:
+    access_token = None
+    host = _host
 build_env(host)
 login(session)
 get_enrolled_courses(session)
