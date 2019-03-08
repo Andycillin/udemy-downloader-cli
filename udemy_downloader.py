@@ -35,6 +35,7 @@ def login(session):
                 found_token = True
                 access_token = h.cookies['access_token']
                 headers['Authorization'] = 'Bearer ' + access_token
+                headers['X-Udemy-Authorization'] = 'Bearer ' + access_token
                 break
         if not found_token:
             print("Access denied!")
@@ -43,6 +44,7 @@ def login(session):
     else:
         access_token = r2.cookies['access_token']
         headers['Authorization'] = 'Bearer ' + access_token
+        headers['X-Udemy-Authorization'] = 'Bearer ' + access_token
     print('Access granted!')
 
 
@@ -138,7 +140,15 @@ def download_asset(session, courseid, lectureid, asset):
                               clean_string(
                                   str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' '))))
     filepath = os.path.join(course_dir, clean_string(str(lectureid) + '_' + filename) + '.' + ext)
-    open(filepath, 'wb').write(r.content)
+
+    try:
+        urls = r.json()['download_urls']
+        content = session.get(urls['File'][0]['file'])
+        print("URL: ", urls['File'][0]['file'])
+        open(filepath, 'wb').write(content.content)
+    except:
+        print(r)
+
     # print("Saved: ", asset['filename'])
 
 
