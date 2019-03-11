@@ -15,31 +15,31 @@ Options:
 - -l, --showlog : Print all logs
  
 
-Command list:
+## Command list:
+List all enrolled courses
 ```bash
 > list
 ```
-List all enrolled courses
 
+Download all enrolled courses 
 ```bash
 > downloadall
 ```
-Download all enrolled courses 
 
+Select a course and list all lectures
 ```bash
 > select <Course ID>
 ```
-Select a course and list all lectures
 
+Download all assets from selected course
 ```bash
 > download all
 ```
-Download all assets from selected course
 
+Download a single lecture and its assets 
 ```bash
 > download <Lecture ID>
 ```
-Download a single lecture and its assets 
 
 
 
