@@ -11,7 +11,7 @@ python udemy_downloader.py [options]
 ```
 #### Options: 
 | Options       | Description  |
-| ------------- |------------- |
+| ------------------------ |------------- |
 | `-s` <br/>  `--server`  | Set udemy server address, default is www.udemy.com (You may need this if you are using Udemy for Business) |
 | `-n` <br/> `--new_user`| Login using another account      |
 | `-l` <br/> `--showlog` | Print all logs      |
