@@ -229,12 +229,12 @@ def download_asset(session, courseid, lecture, asset, to_dir):
     lectureid = lecture['id']
     is_video = False
     if asset['asset_type'] == 'ExternalLink':
-        print_update("Saving URL: ", asset['filename'], "...")
+        print_update("Saving URL: %s ..." % (asset['filename']))
         filename = 'URL_' + asset['filename']
         ext = 'txt'
         content = asset['external_url']
     else:
-        print_update("Downloading file: ", asset['filename'], "...")
+        print_update("Downloading file: %s ... " % (asset['filename']))
         filename, ext = tuple(asset['filename'].rsplit('.', 1))
         is_video = True
 
@@ -443,14 +443,14 @@ def clear_last_line():
     sys.stdout.write("\033[K")
 
 
-def print_update(*pargs):
+def print_update(pargs):
     clear_last_line()
-    print(*pargs, end='\r', flush=True)
+    print(pargs, end='\r', flush=True)
 
 
-def print_last_update(*pargs):
+def print_last_update(pargs):
     clear_last_line()
-    print(*pargs)
+    print(pargs)
 
 
 greeting()
