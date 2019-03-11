@@ -1,4 +1,4 @@
-import requests, os, getpass, pickle, re
+import requests, os, getpass, pickle, re, sys, getopt
 
 selected_course_id = None
 lectures_of_selected_course = []
@@ -9,13 +9,29 @@ download_dir = os.path.join(os.getcwd(), 'udemy-downloads')
 internal_state_file = os.path.join(os.getcwd(), 'istates.pkl')
 downloaded_courses = []
 downloaded_lectures = []
-host = None
 access_token = None
+host = None
+_host = None
+showlog = False
 
 if os.path.exists(internal_state_file):
     istate_file = open(internal_state_file, 'rb')
     downloaded_courses, downloaded_lectures, host, access_token = pickle.load(istate_file)
     istate_file.close()
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "s:ln", ["server=", "showlog", "new_user"])
+except getopt.GetoptError:
+    print('udemy_downloader.py -s <server> -l <True|False>')
+    sys.exit(2)
+
+for opt, arg in opts:
+    if opt in ("-s", "--server"):
+        _host = arg
+    elif opt in ("-l", "--showlog"):
+        showlog = True
+    elif opt in ("-n", "--new_user"):
+        access_token = None
 
 
 def set_access_token(token):
@@ -26,18 +42,18 @@ def set_access_token(token):
 def login(session):
     global access_token
     if access_token != None:
-        print("Access token found, trying to log in...")
+        print("Access token found !")
         set_access_token(access_token)
     else:
         csrftoken = get_csrf_token(session)
         print('''
-        ------------------
-        | Authentication |
-        ------------------
+------------------
+| Authentication |
+------------------
         ''')
         email = input("Email: ")
         password = getpass.getpass()
-        print("Logging in...")
+        print_update("Logging in...")
         r2 = session.post(login_url,
                           data={'email': email, 'password': password,
                                 'csrfmiddlewaretoken': csrftoken}, headers=headers)
@@ -57,77 +73,133 @@ def login(session):
             access_token = r2.cookies['access_token']
             set_access_token(access_token)
         print('Access granted!')
+        print('\n')
+        print('-' * 20)
         persist_internal_state()
-    get_enrolled_courses(session)
+
 
 def get_csrf_token(session):
     global base_api_url
-    print("Connecting...")
+    print_update("Connecting...")
     try:
         x = session.get(base_api_url + '/join/login-popup/')
         csrftoken = session.cookies['csrftoken']
         headers['csrftoken'] = csrftoken
-        print("Connection established!")
+        print_update("Connection established!")
         return csrftoken
     except:
         print("Failed to connect to " + base_api_url)
         exit(0)
 
 
-def get_enrolled_courses(session):
+def get_enrolled_courses(session, arglist=[], silent=False):
     global enrolled_courses, access_token
+    if silent:
+        print_update('Preparing your workbench...')
     r5 = session.get(enrolled_courses_url)
     if r5.status_code != 200:
         access_token = None
-        print("Access token expired or invalid. You must login again")
+        print_last_update("Access token expired or invalid. You must login again")
         login(session)
     else:
         courses = r5.json()['results']
         enrolled_courses = courses
-        print('''
-        --------------------
-        | Enrolled courses |
-        --------------------
-        ''')
-        if (len(courses) == 0):
-            print("You've not enrolled in any course")
-        else:
-            print("Enrolled courses:")
-            print("-" * 20)
-            print("%-10s%s" % ('ID', 'Title'))
-            for c in courses:
-                cname = c['title']
-                if c['id'] in downloaded_courses:
-                    cname = "(Downloaded) " + cname
-                print('%-10s%s' % (c['id'], cname))
-            print("-" * 20)
+        if not silent:
+            print('''
+            --------------------
+            | Enrolled courses |
+            --------------------
+            ''')
+            if (len(courses) == 0):
+                print("You've not enrolled in any course")
+            else:
+                print("Enrolled courses:")
+                print("-" * 20)
+                print("%-10s%s" % ('ID', 'Title'))
+                for c in courses:
+                    cname = c['title']
+                    if c['id'] in downloaded_courses:
+                        cname = "(Downloaded) " + cname
+                    print('%-10s%s' % (c['id'], cname))
+                print("-" * 20)
+    if silent:
+        print_last_update('Ready!')
+        print('\n' + '-' * 20)
 
 
+# Included chapters
 def get_lectures_of_course(session, courseid):
     r3 = session.get(course_lectures_url % (courseid))
     if 'results' not in r3.json():
         print("Error: Course not found")
         exit(0)
-    lectures = [item for item in r3.json()['results'] if item['_class'] == 'lecture']
+    # lectures = [item for item in r3.json()['results'] if item['_class'] == 'lecture']
+    lectures = [item for item in r3.json()['results'] if item['_class'] in ['lecture', 'chapter']]
     return lectures
 
 
-def get_assets_of_lecture(session, courseid, lecture):
-    if (str(courseid) + '_' + str(lecture['id']) in downloaded_lectures):
-        print("Already downloaded this lecture (%s). Skipping..." % (str(lecture['id'])))
-        return
+def split_lectures_to_chapters(lectures):
+    chapters = []
+    chapter = []
+    for idx, item in enumerate(lectures):
+        if item['_class'] == 'chapter' and idx > 0:
+            chapters.append(chapter)
+            chapter = []
+        chapter.append(item)
+    return chapters
 
+
+'''
+First item is chapter item
+All others are lectures
+'''
+
+
+def download_chapter(session, courseid, section):
+    print('Downloading Chapter ' + str(section[0]['object_index']) + ' - ' + section[0]['title'])
+    chap_dir = get_chapter_dir(section[0])
+    lectures = section[1:]
+    for idx, l in enumerate(lectures):
+        get_assets_of_lecture(session, courseid, l, chap_dir, idx, len(lectures))
+
+
+def get_chapter_dir(chapter):
     if not os.path.isdir(download_dir):
         os.makedirs(download_dir)
-    course_dir = os.path.join(download_dir,
-                              clean_string(
-                                  str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' '))))
-    if not os.path.isdir(course_dir):
-        os.makedirs(course_dir)
+
+    chapter_number = chapter['object_index']
+    chapter_dir = os.path.join(get_course_dir(),
+                               clean_string(
+                                   'Chapter ' + str(chapter_number) + ' - ' + replace_space(chapter['title'])))
+    if not os.path.isdir(chapter_dir):
+        os.makedirs(chapter_dir)
+    return chapter_dir
+
+
+def replace_space(s):
+    return '-'.join(s.split(' '))
+
+
+def get_course_dir():
+    if not os.path.isdir(download_dir):
+        os.makedirs(download_dir)
+    dir = os.path.join(download_dir,
+                       clean_string(
+                           str(selected_course['id']) + '_' + replace_space(selected_course['title'])))
+    if not os.path.isdir(dir):
+        os.makedirs(dir)
+    return dir
+
+
+def get_assets_of_lecture(session, courseid, lecture, to_dir, idx=1, total=1):
+    if (str(courseid) + '_' + str(lecture['id']) in downloaded_lectures):
+        print_update("Already downloaded this lecture (%s). Skipping..." % (str(lecture['id'])))
+        return
+
     if len(lecture['supplementary_assets']) > 0:
-        print('%s has %d supplementary asset' % (lecture['title'], len(lecture['supplementary_assets'])))
+        print_update('%s has %d supplementary asset' % (lecture['title'], len(lecture['supplementary_assets'])))
         for a in lecture['supplementary_assets']:
-            download_asset(session, courseid, lecture['id'], a)
+            download_asset(session, courseid, lecture, a, to_dir)
     r4 = session.get(assets_of_lecture_url % (courseid, lecture['id']))
     try:
         asset = r4.json()['asset']
@@ -137,11 +209,13 @@ def get_assets_of_lecture(session, courseid, lecture):
     if (asset['asset_type'] == 'Video'):
         url = asset['stream_urls']['Video'][0]['file']
         ext = url.split('/')[-1].split('?')[0].split('.')[-1]
-        vid_name = clean_string(str(lecture['id']) + '_' + '-'.join(lecture['title'].split(' ')))
+        vid_name = clean_string(str(lecture['object_index']) + '_Lecture-' + '-'.join(lecture['title'].split(' ')))
         vid_filename = vid_name + '.' + ext
-        filename = os.path.join(course_dir, vid_filename)
-        print("Downloading video: %s" % (vid_filename))
-        print("URL: ", url)
+        filename = os.path.join(to_dir, vid_filename)
+        sys.stdout.write("\033[K")
+        print_update("(%d/%d) Downloading video: %s" % (idx + 1, total, vid_filename))
+        if showlog:
+            print("URL: ", url)
         # vid = session.get(url)
         vid = requests.get(url)
         if vid.status_code == 200:
@@ -153,72 +227,85 @@ def get_assets_of_lecture(session, courseid, lecture):
     downloaded_lectures.append(str(courseid) + '_' + str(lecture['id']))
 
 
-def download_asset(session, courseid, lectureid, asset):
-    print("Downloading file: ", asset['filename'], "...")
-    r = session.get(download_asset_url % (courseid, lectureid, asset['id']))
-    filename, ext = tuple(asset['filename'].rsplit('.', 1))
-    if not os.path.isdir(download_dir):
-        os.makedirs(download_dir)
-    course_dir = os.path.join(download_dir,
-                              clean_string(
-                                  str(selected_course['id']) + '_' + '-'.join(selected_course['title'].split(' '))))
-    filepath = os.path.join(course_dir, clean_string(str(lectureid) + '_' + filename) + '.' + ext)
+def download_asset(session, courseid, lecture, asset, to_dir):
+    lectureid = lecture['id']
+    is_video = False
+    if asset['asset_type'] == 'ExternalLink':
+        print_update("Saving URL: ", asset['filename'], "...")
+        filename = 'URL_' + asset['filename']
+        ext = 'txt'
+        content = asset['external_url']
+    else:
+        print_update("Downloading file: ", asset['filename'], "...")
+        filename, ext = tuple(asset['filename'].rsplit('.', 1))
+        is_video = True
 
-    try:
-        urls = r.json()['download_urls']
-        # content = session.get(urls['File'][0]['file'])
-        print("URL: ", urls['File'][0]['file'])
-        content = requests.get(urls['File'][0]['file'])
-        if content.status_code == 200:
-            open(filepath, 'wb').write(content.content)
-        else:
-            print("Error Code: ", content.status_code)
-            print(content.text)
-    except:
-        print(r)
+    filepath = os.path.join(to_dir, clean_string(str(lecture['object_index']) + '_Asset-' + filename) + '.' + ext)
+
+    if is_video:
+        r = session.get(download_asset_url % (courseid, lectureid, asset['id']))
+        try:
+            urls = r.json()['download_urls']
+            # content = session.get(urls['File'][0]['file'])
+            if showlog:
+                print("URL: ", urls['File'][0]['file'])
+            content = requests.get(urls['File'][0]['file'])
+            if content.status_code == 200:
+                open(filepath, 'wb').write(content.content)
+            else:
+                print("Error Code: ", content.status_code)
+                print(content.text)
+        except:
+            print(r)
+    else:
+        open(filepath, 'w').write(content)
 
     # print("Saved: ", asset['filename'])
 
 
 def download_all_from_course(session):
-    print("Course: %s" % (selected_course['id']))
+    print("Course: %s | ID: %s" % (selected_course['title'], selected_course['id']))
     if selected_course_id in downloaded_courses:
         print("Already downloaded this course. Skipping...")
         return
-    print("Downloading all lectures and assets...")
     lectures = get_lectures_of_course(session, selected_course_id)
-    for l in lectures:
-        get_assets_of_lecture(session, selected_course_id, l)
+    chapters = split_lectures_to_chapters(lectures)
+    print("Downloading all %d chapters and supplementaries..." % (len(chapters)))
+
+    for c in chapters:
+        download_chapter(session, selected_course_id, c)
     downloaded_courses.append(selected_course_id)
     persist_internal_state()
+    print("Successfully downloaded all lectures!")
 
 
 def download_single_lecture_from_course(session, lecture):
     print("Downloading lecture: %s" % (lecture['title']))
-    get_assets_of_lecture(session, selected_course_id, lecture)
+    get_assets_of_lecture(session, selected_course_id, lecture, get_course_dir(), 1, 1)
 
 
-def cmd_download(session, args_list):
+def cmd_download(session, args_list, greet=True):
     assert len(args_list) == 1
     download_all = args_list[0].lower() == 'all'
     if download_all:
-        print('''
-        -------------------------
-        | DOWNLOAD ALL LECTURES |
-        -------------------------
-        ''')
+        if greet:
+            print('''
+                    -------------------------
+                    | DOWNLOAD ALL LECTURES |
+                    -------------------------
+                    ''')
         download_all_from_course(session)
-        print("Successfully downloaded all lectures!")
     else:
         found = False
         for l in lectures_of_selected_course:
             if int(l['id']) == int(args_list[0]):
                 found = True
-                print('''
-                ----------------------
-                |  DOWNLOAD LECTURE  |
-                ----------------------
-                ''')
+                if greet:
+                    print('''
+                                    ----------------------
+                                    |  DOWNLOAD LECTURE  |
+                                    ----------------------
+                                    ''')
                 download_single_lecture_from_course(session, l)
 
                 print("Successfully downloaded lecture: %s!" % (l['title']))
@@ -239,7 +326,7 @@ def cmd_select_course(session, args_list):
     if found:
         lectures_of_selected_course = get_lectures_of_course(session, course_id)
         selected_course_id = course_id
-        cmd_list_all_lectures(session, args_list)
+        # cmd_list_all_lectures(session, args_list)
     else:
         print('Course with ID %d not found' % (int(c['id'])))
 
@@ -253,14 +340,14 @@ def cmd_list_all_lectures(session, args_list):
     for l in lectures_of_selected_course:
         print("%-10s%s" % (l['id'], l['title']))
     print("-" * 20)
-    print("Type 'download all' or 'download <LectureID> to save videos and assets to your computer")
+    # print("Type 'download all' or 'download <LectureID> to save videos and assets to your computer")
 
 
 def cmd_downloadall(session, args_list):
     global enrolled_courses
     for c in enrolled_courses:
         cmd_select_course(session, [c['id']])
-        cmd_download(session, ['all'])
+        cmd_download(session, ['all'], False)
 
 
 cmd_list = {
@@ -279,6 +366,10 @@ cmd_list = {
     'downloadall': {
         'require_course': False,
         'func': cmd_downloadall
+    },
+    'list': {
+        'require_course': False,
+        'func': get_enrolled_courses
     }
 }
 
@@ -338,11 +429,11 @@ def persist_internal_state():
 
 def greeting():
     print('''
-    ===========================
-    ||                       ||
-    || UDEMY DOWNLOADER V1.0 ||
-    ||       Andy Tran       ||
-    ===========================
+===========================
+||                       ||
+|| UDEMY DOWNLOADER V1.3 ||
+||       Andy Tran       ||
+===========================
     ''')
 
 
@@ -350,11 +441,27 @@ def clean_string(path):
     return re.sub('[^\d\w\-_]+', '', path)
 
 
+def clear_last_line():
+    sys.stdout.write("\033[K")
+
+
+def print_update(*pargs):
+    clear_last_line()
+    print(*pargs, end='\r', flush=True)
+
+
+def print_last_update(*pargs):
+    clear_last_line()
+    print(*pargs)
+
+
 greeting()
-_host = input("Udemy Server (default www.udemy.com):")
+if _host == None:
+    _host = input("Udemy Server (default www.udemy.com):")
 if _host != host:
     access_token = None
     host = _host
 build_env(host)
 login(session)
+get_enrolled_courses(session, silent=True)
 loop_user_interaction(session)
