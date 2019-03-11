@@ -444,14 +444,14 @@ def clear_last_line():
     sys.stdout.write("\033[K")
 
 
-def print_update(pargs):
+def print_update(*pargs):
     clear_last_line()
-    print(pargs, end='\r', flush=True)
+    print(*pargs, end='\r', flush=True)
 
 
-def print_last_update(pargs):
+def print_last_update(*pargs):
     clear_last_line()
-    print(pargs)
+    print(*pargs)
 
 
 greeting()
