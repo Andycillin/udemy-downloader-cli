@@ -312,7 +312,7 @@ def cmd_download(session, args_list, greet=True):
             print("Lecture not found. Are you sure that LectureID is correct?")
 
 
-def cmd_select_course(session, args_list):
+def cmd_select_course(session, args_list, silent = False):
     global lectures_of_selected_course, selected_course_id, selected_course
     course_id = int(args_list[0])
     found = False
@@ -324,7 +324,8 @@ def cmd_select_course(session, args_list):
     if found:
         lectures_of_selected_course = get_lectures_of_course(session, course_id)
         selected_course_id = course_id
-        # cmd_list_all_lectures(session, args_list)
+        if silent:
+            cmd_list_all_lectures(session, args_list)
     else:
         print('Course with ID %d not found' % (int(c['id'])))
 
@@ -344,7 +345,7 @@ def cmd_list_all_lectures(session, args_list):
 def cmd_downloadall(session, args_list):
     global enrolled_courses
     for c in enrolled_courses:
-        cmd_select_course(session, [c['id']])
+        cmd_select_course(session, [c['id']], silent=True)
         cmd_download(session, ['all'], False)
 
 
