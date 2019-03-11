@@ -324,7 +324,7 @@ def cmd_select_course(session, args_list, silent = False):
     if found:
         lectures_of_selected_course = get_lectures_of_course(session, course_id)
         selected_course_id = course_id
-        if silent:
+        if not silent:
             cmd_list_all_lectures(session, args_list)
     else:
         print('Course with ID %d not found' % (int(c['id'])))
