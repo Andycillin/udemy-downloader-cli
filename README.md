@@ -12,9 +12,9 @@ python udemy_downloader.py [options]
 #### Options: 
 | Options       | Description  |
 | ------------- |------------- |
-| `-s, --server`  | Set udemy server address, default is www.udemy.com (You may need this if you are using Udemy for Business) |
-| `-n, --new_user`| Login using another account      |
-| `-l, --showlog` | Print all logs      |
+| `-s,  --server`  | Set udemy server address, default is www.udemy.com (You may need this if you are using Udemy for Business) |
+| `-n,  --new_user`| Login using another account      |
+| `-l,  --showlog` | Print all logs      |
 
 ## Command list:
 List all enrolled courses
