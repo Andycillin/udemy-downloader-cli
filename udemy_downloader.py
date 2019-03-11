@@ -73,8 +73,6 @@ def login(session):
             access_token = r2.cookies['access_token']
             set_access_token(access_token)
         print('Access granted!')
-        print('\n')
-        print('-' * 20)
         persist_internal_state()
 
 
