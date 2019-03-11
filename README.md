@@ -5,15 +5,16 @@ Author: Andy Tran
 
 Sourcecode: [Github](https://github.com/Andycillin/udemy-downloader-cli)
 
-Usage:
+## Usage:
 ```bash
 python udemy_downloader.py [options]
 ```
-Options: 
-- -s, --server : Set udemy server address, default is www.udemy.com (You may need this if you are using Udemy for Business)
-- -n, --new_user : Login with new account
-- -l, --showlog : Print all logs
- 
+#### Options: 
+| Options       | Description  |
+| ------------- |------------- |
+| `-s, --server`  | Set udemy server address, default is www.udemy.com (You may need this if you are using Udemy for Business) |
+| `-n, --new_user`| Login using another account      |
+| `-l, --showlog` | Print all logs      |
 
 ## Command list:
 List all enrolled courses
