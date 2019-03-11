@@ -1,9 +1,19 @@
 # Udemy Downloader CLI
 Mini script for downloading Videos & Assets from Udemy and Udemy Business
 
+Version 1.3 
+
 Author: Andy Tran  
 
 Sourcecode: [Github](https://github.com/Andycillin/udemy-downloader-cli)
+
+## Features:
+- Supports both Udemy and Udemy Business
+- Login once
+- List all enrolled courses and download 'em all 
+- Download a single course of choice
+- Download a single lecture of choice
+- All supplementaries belonging to the lecture will be included in download
 
 ## Usage:
 ```bash
