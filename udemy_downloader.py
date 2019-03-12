@@ -203,6 +203,8 @@ def get_assets_of_lecture(session, courseid, lecture, to_dir, idx=1, total=1):
         asset = r4.json()['asset']
     except:
         print(r4)
+        print("An error occured. I'm out")
+        sys.exit(1)
 
     if (asset['asset_type'] == 'Video'):
         url = asset['stream_urls']['Video'][0]['file']
